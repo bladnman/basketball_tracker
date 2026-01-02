@@ -1,0 +1,11 @@
+Model Information:
+* title:	Milk Crate
+* source:	https://sketchfab.com/3d-models/milk-crate-fb01473792a541b09cc0acc07ac3dbc1
+* author:	Fairyflosslord7 (https://sketchfab.com/Fairyflosslord7)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Milk Crate" (https://sketchfab.com/3d-models/milk-crate-fb01473792a541b09cc0acc07ac3dbc1) by Fairyflosslord7 (https://sketchfab.com/Fairyflosslord7) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
