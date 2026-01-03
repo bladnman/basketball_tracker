@@ -5,7 +5,7 @@ import { BALL_DIAMETER, CRATE_WIDTH, CRATE_DEPTH, CRATE_HEIGHT, BALL_REST_Y } fr
 // Physics constants
 const GRAVITY = -15; // Slightly stronger than real gravity for snappier feel
 const BALL_MASS = 0.6;
-const BALL_RESTITUTION = 0.4; // Reduced bounciness for better containment
+const BALL_RESTITUTION = 0.2; // Further reduced bounciness for faster settling
 const BALL_FRICTION = 0.3;
 const FIXED_TIME_STEP = 1 / 60;
 const MAX_SUB_STEPS = 3;
@@ -72,8 +72,8 @@ export class PhysicsWorld {
     const body = new CANNON.Body({
       mass: BALL_MASS,
       shape: sphereShape,
-      linearDamping: 0.1,
-      angularDamping: 0.4,
+      linearDamping: 0.4,  // Increased for faster settling
+      angularDamping: 0.5, // Balanced with linear damping
     });
 
     // Position at world coordinates
@@ -145,7 +145,7 @@ export class PhysicsWorld {
 
     ball.body.velocity.set(
       Math.cos(angle) * speed,
-      8 + Math.random() * 3, // Upward
+      12 + Math.random() * 3, // Increased upward velocity for cleaner exit
       Math.sin(angle) * speed
     );
 

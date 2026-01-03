@@ -31,20 +31,20 @@ export class TileLabel {
     dayNameText.color = color;
     dayNameText.anchorX = 'center';
     dayNameText.anchorY = 'bottom';
-    // Position above the number
-    dayNameText.position.set(0, 0.02, 1.1);
+    // Position above the number (moved forward for visibility)
+    dayNameText.position.set(0, 0.02, 1.8);
     dayNameText.rotation.set(-Math.PI / 2, 0, 0);
     dayNameText.sync();
 
-    // Day number (bottom, larger)
+    // Day number (bottom, larger and bolder)
     const dayNumberText = new Text();
     dayNumberText.text = String(dayNumber);
-    dayNumberText.fontSize = 0.9;
+    dayNumberText.fontSize = 1.1;
     dayNumberText.color = color;
     dayNumberText.anchorX = 'center';
     dayNumberText.anchorY = 'top';
-    // Position below, slightly closer to camera (larger Z)
-    dayNumberText.position.set(0, 0.02, 1.25);
+    // Position below day name, moved forward for visibility
+    dayNumberText.position.set(0, 0.02, 1.9);
     dayNumberText.rotation.set(-Math.PI / 2, 0, 0);
     dayNumberText.sync();
 

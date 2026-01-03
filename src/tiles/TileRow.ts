@@ -202,7 +202,9 @@ export class TileRow extends THREE.Group {
 
       this.lightingSystem.addActiveLight(dateKey, worldCenter);
     } else {
-      // Toggle OFF - eject ball with physics
+      // Toggle OFF - remove crate collider FIRST so ball can escape cleanly
+      this.physicsWorld.removeCrateCollider(dateKey);
+
       const ball = tile.getBall();
 
       // Check if physics body exists, if so use physics eject
