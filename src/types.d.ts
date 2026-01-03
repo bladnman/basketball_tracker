@@ -3,6 +3,7 @@ declare module 'troika-three-text' {
 
   export class Text extends THREE.Mesh {
     text: string;
+    font: string | null;
     fontSize: number;
     color: number | string;
     anchorX: 'left' | 'center' | 'right' | number;

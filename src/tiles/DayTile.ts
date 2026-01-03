@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Text } from 'troika-three-text';
-import { TileLabel, DayLabelGroup } from './TileLabel';
+import { TileLabel, DayLabelGroup, getDateFont } from './TileLabel';
 import { TileData } from '../state/types';
 import { BALL_REST_Y } from '../constants';
 
@@ -13,6 +13,9 @@ export class DayTile extends THREE.Group {
   private dayLabel: DayLabelGroup;
   private weekLabel: Text | null = null;
   private monthLabel: Text | null = null;
+  private dayOfMonth: number = 1;
+  private dayName: string = 'MON';
+  private isToday: boolean = false;
 
   // Reference to base models for cloning
   private static crateTemplate: THREE.Group | null = null;
@@ -52,9 +55,12 @@ export class DayTile extends THREE.Group {
   public configure(data: TileData): void {
     this.dateKey = data.dateKey;
     this.isActive = data.isActive;
+    this.dayOfMonth = data.dayOfMonth;
+    this.dayName = data.dayName;
+    this.isToday = data.isToday;
 
-    // Update day label
-    TileLabel.updateDayLabel(this.dayLabel, data.dayOfMonth, data.dayName, data.isToday);
+    // Update day label (pass isActive for brightness)
+    TileLabel.updateDayLabel(this.dayLabel, data.dayOfMonth, data.dayName, data.isToday, data.isActive);
 
     // Show/hide ball based on active state (no animation during configure)
     this.ball.visible = data.isActive;
@@ -143,7 +149,45 @@ export class DayTile extends THREE.Group {
    */
   public setActive(active: boolean): void {
     this.isActive = active;
-    // Animation is handled externally by TileRow
+    // Update label brightness based on active state
+    TileLabel.updateDayLabel(this.dayLabel, this.dayOfMonth, this.dayName, this.isToday, active);
+    // Ball animation is handled externally by TileRow
+  }
+
+  /**
+   * Update the day number font by recreating the text object
+   */
+  public updateFont(): void {
+    const fontUrl = getDateFont();
+
+    // Store current properties
+    const oldText = this.dayLabel.dayNumberText;
+    const currentText = oldText.text;
+    const currentColor = oldText.color;
+    const currentFontSize = oldText.fontSize;
+    const currentPos = oldText.position.clone();
+    const currentRot = oldText.rotation.clone();
+
+    // Remove old text
+    this.dayLabel.remove(oldText);
+    oldText.dispose();
+
+    // Create new text with updated font
+    const newText = new Text();
+    newText.text = currentText;
+    newText.fontSize = currentFontSize;
+    newText.color = currentColor;
+    newText.anchorX = 'center';
+    newText.anchorY = 'top';
+    newText.position.copy(currentPos);
+    newText.rotation.copy(currentRot);
+    if (fontUrl) {
+      newText.font = fontUrl;
+    }
+    newText.sync();
+
+    this.dayLabel.add(newText);
+    this.dayLabel.dayNumberText = newText;
   }
 
   public dispose(): void {

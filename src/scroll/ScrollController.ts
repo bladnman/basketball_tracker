@@ -1,15 +1,25 @@
 import { SCROLL_FRICTION, SCROLL_SENSITIVITY, DRAG_SENSITIVITY } from '../constants';
 
+// Zoom constants
+const ZOOM_SENSITIVITY = 0.002;
+const MIN_FRUSTUM = 10;
+const MAX_FRUSTUM = 40;
+
+export type ZoomCallback = (frustumSize: number) => void;
+
 export class ScrollController {
   private velocity: number = 0;
   private offset: number = 0;
   private isDragging: boolean = false;
   private lastPointerX: number = 0;
+  private frustumSize: number = 20; // Default from constants
 
   private element: HTMLElement;
+  private onZoomCallback: ZoomCallback | null = null;
 
-  constructor(element: HTMLElement) {
+  constructor(element: HTMLElement, initialFrustum: number = 20) {
     this.element = element;
+    this.frustumSize = initialFrustum;
     this.setupEventListeners();
   }
 
@@ -32,9 +42,19 @@ export class ScrollController {
   private onWheel(event: WheelEvent): void {
     event.preventDefault();
 
-    // Use deltaX for horizontal scroll, deltaY with shift for vertical scroll wheels
-    const delta = event.shiftKey ? event.deltaY : event.deltaX;
-    this.velocity += delta * SCROLL_SENSITIVITY;
+    if (event.shiftKey) {
+      // Shift + scroll = horizontal pan (old behavior)
+      const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+      this.velocity += delta * SCROLL_SENSITIVITY;
+    } else {
+      // Scroll = zoom
+      const delta = event.deltaY;
+      this.frustumSize = Math.max(
+        MIN_FRUSTUM,
+        Math.min(MAX_FRUSTUM, this.frustumSize + delta * ZOOM_SENSITIVITY)
+      );
+      this.onZoomCallback?.(this.frustumSize);
+    }
   }
 
   private onPointerDown(event: PointerEvent): void {
@@ -109,6 +129,28 @@ export class ScrollController {
    */
   public isScrolling(): boolean {
     return this.isDragging || Math.abs(this.velocity) > 0.01;
+  }
+
+  /**
+   * Set callback for zoom changes
+   */
+  public setOnZoom(callback: ZoomCallback): void {
+    this.onZoomCallback = callback;
+  }
+
+  /**
+   * Get current frustum size
+   */
+  public getFrustumSize(): number {
+    return this.frustumSize;
+  }
+
+  /**
+   * Set frustum size directly
+   */
+  public setFrustumSize(size: number): void {
+    this.frustumSize = Math.max(MIN_FRUSTUM, Math.min(MAX_FRUSTUM, size));
+    this.onZoomCallback?.(this.frustumSize);
   }
 
   public dispose(): void {

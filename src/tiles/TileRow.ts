@@ -17,6 +17,7 @@ export class TileRow extends THREE.Group {
 
   private visibleRange: { start: number; end: number } = { start: 0, end: 0 };
   private tileDataCache: Map<number, TileData> = new Map();
+  private debugMode: boolean = false;
 
   constructor(pool: TilePool, habitStore: HabitStore, lightingSystem: LightingSystem, physicsWorld: PhysicsWorld) {
     super();
@@ -30,7 +31,12 @@ export class TileRow extends THREE.Group {
    * Initialize visible tiles centered on today
    */
   public initialize(viewportWidth: number): void {
-    const tilesVisible = Math.ceil(viewportWidth / TILE_SPACING) + VISIBLE_TILE_BUFFER * 2;
+    let tilesVisible: number;
+    if (this.debugMode) {
+      tilesVisible = 3; // Only 3 tiles in debug mode
+    } else {
+      tilesVisible = Math.ceil(viewportWidth / TILE_SPACING) + VISIBLE_TILE_BUFFER * 2;
+    }
     const halfVisible = Math.floor(tilesVisible / 2);
 
     this.visibleRange = {
@@ -52,7 +58,12 @@ export class TileRow extends THREE.Group {
     this.position.x = -scrollOffset;
 
     // Calculate which indices should be visible
-    const tilesVisible = Math.ceil(viewportWidth / TILE_SPACING) + VISIBLE_TILE_BUFFER * 2;
+    let tilesVisible: number;
+    if (this.debugMode) {
+      tilesVisible = 3; // Only 3 tiles in debug mode
+    } else {
+      tilesVisible = Math.ceil(viewportWidth / TILE_SPACING) + VISIBLE_TILE_BUFFER * 2;
+    }
     const halfVisible = Math.floor(tilesVisible / 2);
 
     const centerIndex = Math.round(scrollOffset / TILE_SPACING);
@@ -148,6 +159,7 @@ export class TileRow extends THREE.Group {
     if (tile) {
       this.remove(tile);
       this.lightingSystem.removeActiveLight(dateKey);
+      this.physicsWorld.removeBall(dateKey); // Remove ball physics body
       this.physicsWorld.removeCrateCollider(dateKey);
       this.pool.release(dateKey);
       this.tileDataCache.delete(index);
@@ -254,6 +266,29 @@ export class TileRow extends THREE.Group {
       meshes.push(...tile.getCrateMeshes());
     }
     return meshes;
+  }
+
+  /**
+   * Refresh fonts on all visible tiles
+   */
+  public refreshFonts(): void {
+    for (const tile of this.pool.getActiveTiles().values()) {
+      tile.updateFont();
+    }
+  }
+
+  /**
+   * Set debug mode - limits visible tiles to 3
+   */
+  public setDebugMode(enabled: boolean): void {
+    if (this.debugMode === enabled) return;
+    this.debugMode = enabled;
+
+    // Force recalculation of visible tiles
+    const oldRange = { ...this.visibleRange };
+    this.visibleRange = { start: 0, end: 0 }; // Reset to trigger update
+    this.visibleRange = oldRange;
+    this.updateVisibleTiles();
   }
 
   public dispose(): void {

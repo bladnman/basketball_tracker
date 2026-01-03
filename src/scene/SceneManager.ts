@@ -9,6 +9,7 @@ export class SceneManager {
   private animationId: number = 0;
   private updateCallbacks: Set<(delta: number) => void> = new Set();
   private clock: THREE.Clock;
+  private currentFrustumSize: number = FRUSTUM_SIZE;
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene = new THREE.Scene();
@@ -46,13 +47,28 @@ export class SceneManager {
   private onResize(): void {
     const aspect = window.innerWidth / window.innerHeight;
 
-    this.camera.left = (-FRUSTUM_SIZE * aspect) / 2;
-    this.camera.right = (FRUSTUM_SIZE * aspect) / 2;
-    this.camera.top = FRUSTUM_SIZE / 2;
-    this.camera.bottom = -FRUSTUM_SIZE / 2;
+    this.camera.left = (-this.currentFrustumSize * aspect) / 2;
+    this.camera.right = (this.currentFrustumSize * aspect) / 2;
+    this.camera.top = this.currentFrustumSize / 2;
+    this.camera.bottom = -this.currentFrustumSize / 2;
     this.camera.updateProjectionMatrix();
 
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  /**
+   * Set the frustum size for zoom
+   */
+  public setFrustumSize(size: number): void {
+    this.currentFrustumSize = size;
+    this.onResize(); // Reuse resize logic to update camera
+  }
+
+  /**
+   * Get current frustum size
+   */
+  public getFrustumSize(): number {
+    return this.currentFrustumSize;
   }
 
   public onUpdate(callback: (delta: number) => void): () => void {

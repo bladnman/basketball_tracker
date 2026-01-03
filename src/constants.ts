@@ -39,6 +39,7 @@ export const DIRECTIONAL_LIGHT_INTENSITY = 0.8;
 export const ACTIVE_LIGHT_COLOR = 0xffaa44;
 export const TODAY_HIGHLIGHT_COLOR = 0xffcc00;
 export const DAY_LABEL_COLOR = 0xffffff;
+export const DAY_LABEL_INACTIVE_COLOR = 0x888888; // Dimmer for inactive tiles
 export const WEEK_LABEL_COLOR = 0x888888;
 export const MONTH_LABEL_COLOR = 0xaaaaaa;
 

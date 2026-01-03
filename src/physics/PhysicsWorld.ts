@@ -1,16 +1,44 @@
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three';
-import { BALL_DIAMETER, CRATE_WIDTH, CRATE_DEPTH, CRATE_HEIGHT, BALL_REST_Y } from '../constants';
+import { BALL_REST_Y } from '../constants';
 
-// Physics constants
-const GRAVITY = -12; // Moderate gravity for natural arcs
-const BALL_MASS = 0.6;
-const BALL_RESTITUTION = 0.5; // More realistic basketball bounce
-const BALL_FRICTION = 0.4; // Good grip on surfaces
-const BALL_LINEAR_DAMPING = 0.1; // Preserve velocity longer
-const BALL_ANGULAR_DAMPING = 0.08; // Preserve spin much longer
+// Physics constants (now mutable via config)
 const FIXED_TIME_STEP = 1 / 60;
 const MAX_SUB_STEPS = 3;
+
+export interface PhysicsConfigValues {
+  ballRadius: number;
+  wallThickness: number;
+  crateDepth: number;
+  crateWidth: number;
+  crateHeight: number;
+  gravity: number;
+  linearDamping: number;
+  angularDamping: number;
+  sleepThreshold: number;
+  bounciness: number;
+}
+
+// Default values (tuned for good physics)
+const DEFAULT_PHYSICS_CONFIG: PhysicsConfigValues = {
+  ballRadius: 0.65,
+  wallThickness: 0.1,
+  crateDepth: 1.9,
+  crateWidth: 1.9,
+  crateHeight: 2.0,
+  gravity: -14,
+  linearDamping: 0.1,
+  angularDamping: 0.08,
+  sleepThreshold: 0.3,
+  bounciness: 0.5,
+};
+
+const BALL_MASS = 0.6;
+const BALL_FRICTION = 0.4;
+
+// Ground level for detecting rolling balls
+const GROUND_Y_THRESHOLD = 0.2; // How close to ground to consider "on ground"
+const ROLLING_VERTICAL_THRESHOLD = 0.5; // Max vertical velocity to consider "rolling"
 
 export interface PhysicsBall {
   body: CANNON.Body;
@@ -30,21 +58,25 @@ export class PhysicsWorld {
   private crateColliders: Map<string, CrateCollider> = new Map();
   private groundBody: CANNON.Body;
   private lastScrollOffset: number = 0;
+  private config: PhysicsConfigValues;
+  private contactMaterial: CANNON.ContactMaterial;
 
   constructor() {
+    this.config = { ...DEFAULT_PHYSICS_CONFIG };
+
     // Create physics world
     this.world = new CANNON.World();
-    this.world.gravity.set(0, GRAVITY, 0);
+    this.world.gravity.set(0, this.config.gravity, 0);
     this.world.broadphase = new CANNON.NaiveBroadphase();
 
-    // Default contact material
+    // Default contact material (with configurable bounciness)
     const defaultMaterial = new CANNON.Material('default');
-    const contactMaterial = new CANNON.ContactMaterial(defaultMaterial, defaultMaterial, {
+    this.contactMaterial = new CANNON.ContactMaterial(defaultMaterial, defaultMaterial, {
       friction: BALL_FRICTION,
-      restitution: BALL_RESTITUTION,
+      restitution: this.config.bounciness,
     });
-    this.world.addContactMaterial(contactMaterial);
-    this.world.defaultContactMaterial = contactMaterial;
+    this.world.addContactMaterial(this.contactMaterial);
+    this.world.defaultContactMaterial = this.contactMaterial;
 
     // Create ground plane (crate floor level)
     const groundShape = new CANNON.Plane();
@@ -55,7 +87,7 @@ export class PhysicsWorld {
     });
     // Rotate to be horizontal (Cannon planes face +Y by default)
     this.groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    this.groundBody.position.set(0, BALL_REST_Y - BALL_DIAMETER / 2, 0);
+    this.groundBody.position.set(0, BALL_REST_Y - this.config.ballRadius, 0);
     this.world.addBody(this.groundBody);
   }
 
@@ -68,14 +100,14 @@ export class PhysicsWorld {
       this.removeBall(tileId);
     }
 
-    const radius = BALL_DIAMETER / 2;
+    const radius = this.config.ballRadius;
 
     const sphereShape = new CANNON.Sphere(radius);
     const body = new CANNON.Body({
       mass: BALL_MASS,
       shape: sphereShape,
-      linearDamping: BALL_LINEAR_DAMPING,
-      angularDamping: BALL_ANGULAR_DAMPING,
+      linearDamping: this.config.linearDamping,
+      angularDamping: this.config.angularDamping,
     });
 
     // Position at world coordinates
@@ -120,7 +152,7 @@ export class PhysicsWorld {
     const vz = dz / flightTime;
     // vy needs to account for gravity: y = y0 + vy*t + 0.5*g*t^2
     // vy = (dy - 0.5*g*t^2) / t
-    const vy = (dy - 0.5 * GRAVITY * flightTime * flightTime) / flightTime;
+    const vy = (dy - 0.5 * this.config.gravity * flightTime * flightTime) / flightTime;
 
     ball.body.velocity.set(vx, vy, vz);
 
@@ -198,9 +230,61 @@ export class PhysicsWorld {
     // Step physics
     this.world.step(FIXED_TIME_STEP, delta, MAX_SUB_STEPS);
 
-    // Sync Three.js meshes with physics bodies
+    // Sync Three.js meshes with physics bodies and apply sleep threshold
+    const groundY = BALL_REST_Y - this.config.ballRadius;
+
     for (const ball of this.balls.values()) {
       if (!ball.isActive) continue;
+
+      const speed = ball.body.velocity.length();
+      const angSpeed = ball.body.angularVelocity.length();
+      const verticalVelocity = Math.abs(ball.body.velocity.y);
+      const ballY = ball.body.position.y;
+
+      // Check if ball is settled (barely moving)
+      const isSettled = speed < this.config.sleepThreshold && angSpeed < this.config.sleepThreshold * 2;
+
+      // Check if ball is rolling on ground (near ground, low vertical velocity, but may have horizontal velocity)
+      const isNearGround = ballY < (groundY + this.config.ballRadius + GROUND_Y_THRESHOLD);
+      const isRolling = isNearGround && verticalVelocity < ROLLING_VERTICAL_THRESHOLD;
+
+      // Get crate info for position checks
+      const crateCollider = this.crateColliders.get(ball.tileId);
+      const crateX = crateCollider?.bodies[0].position.x ?? 0;
+      const crateZ = crateCollider?.bodies[0].position.z ?? 0;
+      const ballX = ball.body.position.x;
+      const ballZ = ball.body.position.z;
+
+      // Calculate if outside crate bounds
+      const innerHalfWidth = (this.config.crateWidth / 2) - this.config.wallThickness - this.config.ballRadius * 0.5;
+      const innerHalfDepth = (this.config.crateDepth / 2) - this.config.wallThickness - this.config.ballRadius * 0.5;
+      const isOutsideX = Math.abs(ballX - crateX) > innerHalfWidth;
+      const isOutsideZ = Math.abs(ballZ - crateZ) > innerHalfDepth;
+      const isOutsideCrate = isOutsideX || isOutsideZ;
+
+      if (isSettled) {
+        // Force stop - zero out velocities
+        ball.body.velocity.set(0, 0, 0);
+        ball.body.angularVelocity.set(0, 0, 0);
+
+        // Teleport if outside crate
+        if (isOutsideCrate && crateCollider) {
+          ball.body.position.set(
+            crateX + (Math.random() - 0.5) * 0.2,
+            BALL_REST_Y,
+            crateZ + (Math.random() - 0.5) * 0.2
+          );
+        }
+      } else if (isRolling && isOutsideCrate && crateCollider) {
+        // Ball is rolling on ground outside crate - teleport it back sooner
+        ball.body.velocity.set(0, 0, 0);
+        ball.body.angularVelocity.set(0, 0, 0);
+        ball.body.position.set(
+          crateX + (Math.random() - 0.5) * 0.2,
+          BALL_REST_Y,
+          crateZ + (Math.random() - 0.5) * 0.2
+        );
+      }
 
       // Get world position from physics
       const worldPos = new THREE.Vector3(
@@ -238,15 +322,15 @@ export class PhysicsWorld {
     }
 
     const bodies: CANNON.Body[] = [];
-    const wallThickness = 0.1;
-    const floorY = BALL_REST_Y - BALL_DIAMETER / 2;
-    const wallHeight = CRATE_HEIGHT;
+    const wallThickness = this.config.wallThickness;
+    const floorY = BALL_REST_Y - this.config.ballRadius;
+    const wallHeight = this.config.crateHeight;
 
     // Floor
     const floorShape = new CANNON.Box(new CANNON.Vec3(
-      CRATE_WIDTH / 2,
+      this.config.crateWidth / 2,
       wallThickness / 2,
-      CRATE_DEPTH / 2
+      this.config.crateDepth / 2
     ));
     const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
     floorBody.position.set(worldPosition.x, floorY, worldPosition.z);
@@ -255,7 +339,7 @@ export class PhysicsWorld {
 
     // Front wall (positive Z)
     const frontBackShape = new CANNON.Box(new CANNON.Vec3(
-      CRATE_WIDTH / 2,
+      this.config.crateWidth / 2,
       wallHeight / 2,
       wallThickness / 2
     ));
@@ -263,7 +347,7 @@ export class PhysicsWorld {
     frontBody.position.set(
       worldPosition.x,
       floorY + wallHeight / 2,
-      worldPosition.z + CRATE_DEPTH / 2
+      worldPosition.z + this.config.crateDepth / 2
     );
     this.world.addBody(frontBody);
     bodies.push(frontBody);
@@ -273,7 +357,7 @@ export class PhysicsWorld {
     backBody.position.set(
       worldPosition.x,
       floorY + wallHeight / 2,
-      worldPosition.z - CRATE_DEPTH / 2
+      worldPosition.z - this.config.crateDepth / 2
     );
     this.world.addBody(backBody);
     bodies.push(backBody);
@@ -282,11 +366,11 @@ export class PhysicsWorld {
     const leftRightShape = new CANNON.Box(new CANNON.Vec3(
       wallThickness / 2,
       wallHeight / 2,
-      CRATE_DEPTH / 2
+      this.config.crateDepth / 2
     ));
     const leftBody = new CANNON.Body({ mass: 0, shape: leftRightShape });
     leftBody.position.set(
-      worldPosition.x - CRATE_WIDTH / 2,
+      worldPosition.x - this.config.crateWidth / 2,
       floorY + wallHeight / 2,
       worldPosition.z
     );
@@ -296,7 +380,7 @@ export class PhysicsWorld {
     // Right wall (positive X)
     const rightBody = new CANNON.Body({ mass: 0, shape: leftRightShape });
     rightBody.position.set(
-      worldPosition.x + CRATE_WIDTH / 2,
+      worldPosition.x + this.config.crateWidth / 2,
       floorY + wallHeight / 2,
       worldPosition.z
     );
@@ -328,19 +412,19 @@ export class PhysicsWorld {
     const collider = this.crateColliders.get(tileId);
     if (!collider) return;
 
-    const floorY = BALL_REST_Y - BALL_DIAMETER / 2;
-    const wallHeight = CRATE_HEIGHT;
+    const floorY = BALL_REST_Y - this.config.ballRadius;
+    const wallHeight = this.config.crateHeight;
 
     // Update floor
     collider.bodies[0].position.set(worldPosition.x, floorY, worldPosition.z);
     // Update front wall
-    collider.bodies[1].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z + CRATE_DEPTH / 2);
+    collider.bodies[1].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z + this.config.crateDepth / 2);
     // Update back wall
-    collider.bodies[2].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z - CRATE_DEPTH / 2);
+    collider.bodies[2].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z - this.config.crateDepth / 2);
     // Update left wall
-    collider.bodies[3].position.set(worldPosition.x - CRATE_WIDTH / 2, floorY + wallHeight / 2, worldPosition.z);
+    collider.bodies[3].position.set(worldPosition.x - this.config.crateWidth / 2, floorY + wallHeight / 2, worldPosition.z);
     // Update right wall
-    collider.bodies[4].position.set(worldPosition.x + CRATE_WIDTH / 2, floorY + wallHeight / 2, worldPosition.z);
+    collider.bodies[4].position.set(worldPosition.x + this.config.crateWidth / 2, floorY + wallHeight / 2, worldPosition.z);
   }
 
   /**
@@ -363,6 +447,148 @@ export class PhysicsWorld {
     }
 
     this.lastScrollOffset = newScrollOffset;
+  }
+
+  /**
+   * Get current physics configuration
+   */
+  public getConfig(): PhysicsConfigValues {
+    return { ...this.config };
+  }
+
+  /**
+   * Update physics configuration at runtime
+   * Note: This recreates colliders with new dimensions
+   */
+  public setConfig(newConfig: Partial<PhysicsConfigValues>): void {
+    const oldConfig = { ...this.config };
+    this.config = { ...this.config, ...newConfig };
+
+    // Update gravity
+    if (newConfig.gravity !== undefined) {
+      this.world.gravity.set(0, this.config.gravity, 0);
+    }
+
+    // Update bounciness
+    if (newConfig.bounciness !== undefined) {
+      this.contactMaterial.restitution = this.config.bounciness;
+    }
+
+    // Update ball damping for existing balls
+    if (newConfig.linearDamping !== undefined || newConfig.angularDamping !== undefined) {
+      for (const ball of this.balls.values()) {
+        ball.body.linearDamping = this.config.linearDamping;
+        ball.body.angularDamping = this.config.angularDamping;
+      }
+    }
+
+    // If ball radius changed, recreate ball shapes and update ground plane
+    if (newConfig.ballRadius !== undefined && newConfig.ballRadius !== oldConfig.ballRadius) {
+      // Update ground plane position
+      this.groundBody.position.y = BALL_REST_Y - this.config.ballRadius;
+
+      for (const ball of this.balls.values()) {
+        // Store current state
+        const pos = ball.body.position.clone();
+        const vel = ball.body.velocity.clone();
+        const angVel = ball.body.angularVelocity.clone();
+        const quat = ball.body.quaternion.clone();
+
+        // Remove old shape and add new one
+        ball.body.removeShape(ball.body.shapes[0]);
+        const newShape = new CANNON.Sphere(this.config.ballRadius);
+        ball.body.addShape(newShape);
+
+        // Restore state
+        ball.body.position.copy(pos);
+        ball.body.velocity.copy(vel);
+        ball.body.angularVelocity.copy(angVel);
+        ball.body.quaternion.copy(quat);
+      }
+    }
+
+    // If crate dimensions changed, we need to update all colliders
+    // This is expensive, so only do it when needed
+    const crateChanged = (
+      newConfig.wallThickness !== undefined ||
+      newConfig.crateDepth !== undefined ||
+      newConfig.crateWidth !== undefined
+    );
+
+    if (crateChanged) {
+      // Store positions and recreate all colliders
+      const colliderPositions = new Map<string, THREE.Vector3>();
+      for (const [tileId, collider] of this.crateColliders) {
+        colliderPositions.set(tileId, new THREE.Vector3(
+          collider.bodies[0].position.x,
+          0,
+          collider.bodies[0].position.z
+        ));
+      }
+
+      for (const [tileId, pos] of colliderPositions) {
+        this.createCrateCollider(tileId, pos);
+      }
+    }
+  }
+
+  /**
+   * Get info about the first active ball (for debug display)
+   */
+  public getActiveBallInfo(): { position: THREE.Vector3; velocity: number; angularVelocity: number; isSettled: boolean; tileId: string } | null {
+    for (const [tileId, ball] of this.balls) {
+      if (ball.isActive) {
+        return {
+          position: new THREE.Vector3(ball.body.position.x, ball.body.position.y, ball.body.position.z),
+          velocity: ball.body.velocity.length(),
+          angularVelocity: ball.body.angularVelocity.length(),
+          isSettled: this.isBallSettled(tileId),
+          tileId,
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get all active ball positions (for collision visualizer)
+   */
+  public getActiveBallPositions(): Map<string, { x: number; y: number; z: number; isSettled: boolean }> {
+    const result = new Map();
+    for (const [tileId, ball] of this.balls) {
+      if (ball.isActive) {
+        result.set(tileId, {
+          x: ball.body.position.x,
+          y: ball.body.position.y,
+          z: ball.body.position.z,
+          isSettled: this.isBallSettled(tileId),
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get all crate collider positions (for collision visualizer)
+   */
+  public getCratePositions(): Map<string, { x: number; y: number; z: number }> {
+    const result = new Map();
+    for (const [tileId, collider] of this.crateColliders) {
+      // Use floor position (bodies[0])
+      result.set(tileId, {
+        x: collider.bodies[0].position.x,
+        y: collider.bodies[0].position.y,
+        z: collider.bodies[0].position.z,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Get floor Y position for collision visualization
+   */
+  public getFloorY(): number {
+    return BALL_REST_Y - this.config.ballRadius;
   }
 
   public dispose(): void {
