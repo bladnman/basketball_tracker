@@ -48,8 +48,12 @@ export class BallTrajectory {
     const endPos = targetPosition.clone();
     endPos.y = BALL_REST_Y;
 
-    // Initial position
-    ball.position.copy(startPos);
+    // Initial position (convert world to local space)
+    const initialPos = startPos.clone();
+    if (ball.parent) {
+      ball.parent.worldToLocal(initialPos);
+    }
+    ball.position.copy(initialPos);
     ball.visible = true;
 
     const progress = { t: 0 };
@@ -63,6 +67,10 @@ export class BallTrajectory {
       .easing(TWEEN.Easing.Quadratic.Out)
       .onUpdate(() => {
         const pos = arcPosition(progress.t, startPos, endPos, THROW_PEAK_HEIGHT);
+        // Convert world position to local space (ball is child of tile)
+        if (ball.parent) {
+          ball.parent.worldToLocal(pos);
+        }
         ball.position.copy(pos);
 
         // Add rotation during flight

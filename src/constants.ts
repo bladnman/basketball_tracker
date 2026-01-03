@@ -6,7 +6,7 @@ export const WEEK_GAP = 1.5;
 export const CRATE_WIDTH = 2.0;
 export const CRATE_HEIGHT = 1.5;
 export const CRATE_DEPTH = 1.5;
-export const BALL_DIAMETER = 1.0;
+export const BALL_DIAMETER = 1.4;
 export const BALL_REST_Y = 0.4;
 
 // Animation timing

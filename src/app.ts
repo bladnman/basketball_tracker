@@ -10,6 +10,7 @@ import { HabitStore } from './state/HabitStore';
 import { ScrollController } from './scroll/ScrollController';
 import { TileInteraction } from './interaction/TileInteraction';
 import { AnimationManager } from './animation/AnimationManager';
+import { PhysicsWorld } from './physics/PhysicsWorld';
 import { FRUSTUM_SIZE } from './constants';
 
 export class App {
@@ -24,6 +25,7 @@ export class App {
   private scrollController: ScrollController;
   private tileInteraction!: TileInteraction;
   private animationManager: AnimationManager;
+  private physicsWorld: PhysicsWorld;
 
   constructor(canvas: HTMLCanvasElement) {
     // Core systems
@@ -43,6 +45,9 @@ export class App {
 
     // Animation
     this.animationManager = new AnimationManager();
+
+    // Physics
+    this.physicsWorld = new PhysicsWorld();
   }
 
   public async init(): Promise<void> {
@@ -63,7 +68,7 @@ export class App {
 
     // Create tile system
     this.tilePool = new TilePool();
-    this.tileRow = new TileRow(this.tilePool, this.habitStore, this.lightingSystem);
+    this.tileRow = new TileRow(this.tilePool, this.habitStore, this.lightingSystem, this.physicsWorld);
     this.sceneManager.scene.add(this.tileRow);
 
     // Calculate viewport width for tile visibility
@@ -91,7 +96,7 @@ export class App {
     console.log('App initialized');
   }
 
-  private update(_delta: number): void {
+  private update(delta: number): void {
     // Update scroll
     const scrollOffset = this.scrollController.update();
 
@@ -99,6 +104,9 @@ export class App {
     const aspect = window.innerWidth / window.innerHeight;
     const viewportWidth = FRUSTUM_SIZE * aspect;
     this.tileRow.updateScroll(scrollOffset, viewportWidth);
+
+    // Update physics
+    this.physicsWorld.update(delta);
 
     // Update animations
     this.animationManager.update();
@@ -116,5 +124,6 @@ export class App {
     this.tileRow.dispose();
     this.scrollController.dispose();
     this.tileInteraction.dispose();
+    this.physicsWorld.dispose();
   }
 }

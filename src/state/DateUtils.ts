@@ -135,17 +135,28 @@ export function getTileData(
 }
 
 /**
- * Calculate the X position for a tile, including week gaps
+ * Calculate the X position for a tile, including week gaps.
+ * Gap appears BEFORE Monday (between Sunday and Monday).
  */
 export function calculateTileX(index: number, tileSpacing: number, weekGap: number): number {
-  // Count how many week boundaries are between index and 0
+  // Count Monday crossings between index 0 and target index
+  // Gap should appear before each Monday
   let gaps = 0;
-  const sign = index >= 0 ? 1 : -1;
 
-  for (let i = 0; i !== index; i += sign) {
-    const checkDate = indexToDate(i + sign);
-    if (getDayOfWeek(checkDate) === 0) {
-      gaps += sign;
+  if (index > 0) {
+    // Future dates: count Mondays from 1 to index (inclusive)
+    for (let i = 1; i <= index; i++) {
+      if (getDayOfWeek(indexToDate(i)) === 0) {
+        gaps++;
+      }
+    }
+  } else if (index < 0) {
+    // Past dates: count Mondays from index+1 to 0 (exclusive of 0)
+    // Each Monday we pass going backward means a gap before it
+    for (let i = index + 1; i <= 0; i++) {
+      if (getDayOfWeek(indexToDate(i)) === 0) {
+        gaps--;
+      }
     }
   }
 

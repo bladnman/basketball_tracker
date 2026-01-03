@@ -17,7 +17,7 @@ export class TileLabel {
   ): Text {
     const text = new Text();
     text.text = `${dayName} ${dayNumber}`;
-    text.fontSize = 0.3;
+    text.fontSize = 0.5;
     text.color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
     text.anchorX = 'center';
     text.anchorY = 'middle';

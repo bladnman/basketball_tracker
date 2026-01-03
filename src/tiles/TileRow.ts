@@ -3,24 +3,27 @@ import { DayTile } from './DayTile';
 import { TilePool } from './TilePool';
 import { HabitStore } from '../state/HabitStore';
 import { LightingSystem } from '../scene/LightingSystem';
+import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { BallTrajectory } from '../animation/BallTrajectory';
 import { getTileData, dateToKey, indexToDate, calculateTileX } from '../state/DateUtils';
 import { TileData } from '../state/types';
-import { TILE_SPACING, WEEK_GAP, VISIBLE_TILE_BUFFER } from '../constants';
+import { TILE_SPACING, WEEK_GAP, VISIBLE_TILE_BUFFER, THROW_START_HEIGHT, BALL_REST_Y } from '../constants';
 
 export class TileRow extends THREE.Group {
   private pool: TilePool;
   private habitStore: HabitStore;
   private lightingSystem: LightingSystem;
+  private physicsWorld: PhysicsWorld;
 
   private visibleRange: { start: number; end: number } = { start: 0, end: 0 };
   private tileDataCache: Map<number, TileData> = new Map();
 
-  constructor(pool: TilePool, habitStore: HabitStore, lightingSystem: LightingSystem) {
+  constructor(pool: TilePool, habitStore: HabitStore, lightingSystem: LightingSystem, physicsWorld: PhysicsWorld) {
     super();
     this.pool = pool;
     this.habitStore = habitStore;
     this.lightingSystem = lightingSystem;
+    this.physicsWorld = physicsWorld;
   }
 
   /**
@@ -167,24 +170,48 @@ export class TileRow extends THREE.Group {
     tile.setActive(newState);
 
     if (newState) {
-      // Toggle ON - throw ball animation
+      // Toggle ON - throw ball with physics
       const ball = tile.getBall();
+      ball.visible = true;
+
       // Ensure world matrix is up to date before getting world position
       tile.updateWorldMatrix(true, false);
       const worldCenter = tile.getWorldCenter();
 
-      BallTrajectory.createThrowAnimation(ball, worldCenter, () => {
-        // Animation complete
-      })?.start();
+      // Calculate start position (above the crate)
+      const startPos = worldCenter.clone();
+      startPos.y = THROW_START_HEIGHT;
+      startPos.x += (Math.random() - 0.5) * 2;
+      startPos.z += (Math.random() - 0.5) * 1;
+
+      // Target position (resting in crate)
+      const targetPos = worldCenter.clone();
+      targetPos.y = BALL_REST_Y;
+
+      // Create physics body and throw
+      this.physicsWorld.createBallBody(dateKey, ball, startPos);
+      this.physicsWorld.throwBall(dateKey, startPos, targetPos);
 
       this.lightingSystem.addActiveLight(dateKey, worldCenter);
     } else {
-      // Toggle OFF - eject ball animation
+      // Toggle OFF - eject ball with physics
       const ball = tile.getBall();
 
-      BallTrajectory.createEjectAnimation(ball, () => {
-        // Animation complete
-      })?.start();
+      // Check if physics body exists, if so use physics eject
+      const physicsBall = this.physicsWorld.getBall(dateKey);
+      if (physicsBall) {
+        this.physicsWorld.ejectBall(dateKey);
+        // Remove physics body after ball falls out of view
+        setTimeout(() => {
+          this.physicsWorld.removeBall(dateKey);
+          ball.visible = false;
+        }, 1500);
+      } else {
+        // Fallback to animation if no physics body
+        BallTrajectory.createEjectAnimation(ball, () => {
+          ball.visible = false;
+        })?.start();
+      }
 
       this.lightingSystem.removeActiveLight(dateKey);
     }
