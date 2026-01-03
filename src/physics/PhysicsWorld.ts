@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import { BALL_DIAMETER, CRATE_WIDTH, CRATE_DEPTH, CRATE_HEIGHT, BALL_REST_Y } from '../constants';
 
 // Physics constants
-const GRAVITY = -15; // Slightly stronger than real gravity for snappier feel
+const GRAVITY = -12; // Moderate gravity for natural arcs
 const BALL_MASS = 0.6;
-const BALL_RESTITUTION = 0.2; // Further reduced bounciness for faster settling
-const BALL_FRICTION = 0.3;
+const BALL_RESTITUTION = 0.5; // More realistic basketball bounce
+const BALL_FRICTION = 0.4; // Good grip on surfaces
+const BALL_LINEAR_DAMPING = 0.1; // Preserve velocity longer
+const BALL_ANGULAR_DAMPING = 0.08; // Preserve spin much longer
 const FIXED_TIME_STEP = 1 / 60;
 const MAX_SUB_STEPS = 3;
 
@@ -72,8 +74,8 @@ export class PhysicsWorld {
     const body = new CANNON.Body({
       mass: BALL_MASS,
       shape: sphereShape,
-      linearDamping: 0.4,  // Increased for faster settling
-      angularDamping: 0.5, // Balanced with linear damping
+      linearDamping: BALL_LINEAR_DAMPING,
+      angularDamping: BALL_ANGULAR_DAMPING,
     });
 
     // Position at world coordinates

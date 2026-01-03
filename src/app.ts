@@ -105,6 +105,9 @@ export class App {
     const viewportWidth = FRUSTUM_SIZE * aspect;
     this.tileRow.updateScroll(scrollOffset, viewportWidth);
 
+    // Update floor texture to scroll with tiles
+    this.environment.updateScroll(scrollOffset);
+
     // Update physics
     this.physicsWorld.update(delta);
 

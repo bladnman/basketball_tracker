@@ -200,6 +200,9 @@ export class TileRow extends THREE.Group {
       this.physicsWorld.createBallBody(dateKey, ball, startPos);
       this.physicsWorld.throwBall(dateKey, startPos, targetPos);
 
+      // Restore crate collider so ball doesn't fall through (may have been removed on previous toggle OFF)
+      this.physicsWorld.createCrateCollider(dateKey, worldCenter);
+
       this.lightingSystem.addActiveLight(dateKey, worldCenter);
     } else {
       // Toggle OFF - remove crate collider FIRST so ball can escape cleanly

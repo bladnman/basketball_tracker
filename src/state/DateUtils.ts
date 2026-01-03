@@ -101,22 +101,10 @@ export function getTileData(
   // Determine week label (show on Monday)
   const weekLabel = isWeekStart ? `W${String(weekNumber).padStart(2, '0')}` : null;
 
-  // Determine month label (show ONLY on week start when majority month changes)
+  // Determine month label (show on first day of the month)
   let monthLabel: string | null = null;
-  const currentMajority = getWeekMajorityMonth(date);
-
-  // Only show month label on Mondays (week start)
-  if (isWeekStart) {
-    // Get the previous week's majority month
-    const prevWeekDate = addDays(date, -7);
-    const prevWeekMajority = getWeekMajorityMonth(prevWeekDate);
-
-    if (
-      currentMajority.month !== prevWeekMajority.month ||
-      currentMajority.year !== prevWeekMajority.year
-    ) {
-      monthLabel = format(new Date(currentMajority.year, currentMajority.month, 1), 'MMMM yyyy');
-    }
+  if (dayOfMonth === 1) {
+    monthLabel = format(date, 'MMMM yyyy');
   }
 
   return {

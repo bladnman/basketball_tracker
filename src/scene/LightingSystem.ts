@@ -26,7 +26,7 @@ export class LightingSystem {
       DIRECTIONAL_LIGHT_COLOR,
       DIRECTIONAL_LIGHT_INTENSITY
     );
-    this.directionalLight.position.set(5, 10, 5);
+    this.directionalLight.position.set(8, 12, 8);
     this.directionalLight.castShadow = true;
     this.directionalLight.shadow.mapSize.width = 1024;
     this.directionalLight.shadow.mapSize.height = 1024;
@@ -36,20 +36,21 @@ export class LightingSystem {
     this.directionalLight.shadow.camera.right = 20;
     this.directionalLight.shadow.camera.top = 20;
     this.directionalLight.shadow.camera.bottom = -20;
+    this.directionalLight.shadow.radius = 2; // Soft shadow edges
     scene.add(this.directionalLight);
   }
 
   public addActiveLight(tileId: string, position: THREE.Vector3): void {
     if (this.activeLights.has(tileId)) return;
 
-    const light = new THREE.PointLight(ACTIVE_LIGHT_COLOR, 0, 5);
+    const light = new THREE.PointLight(ACTIVE_LIGHT_COLOR, 0, 7); // Increased distance for softer falloff
     light.position.copy(position);
     light.position.y += 2;
     this.scene.add(light);
     this.activeLights.set(tileId, light);
 
-    // Animate light intensity in
-    new TWEEN.Tween(light).to({ intensity: 1.5 }, 300).easing(TWEEN.Easing.Quadratic.Out).start();
+    // Animate light intensity in (reduced for subtlety)
+    new TWEEN.Tween(light).to({ intensity: 1.0 }, 300).easing(TWEEN.Easing.Quadratic.Out).start();
   }
 
   public removeActiveLight(tileId: string): void {
