@@ -13,6 +13,9 @@ import { TileData } from './types';
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 
+// Day name abbreviations (Monday = 0)
+const DAY_NAMES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 /**
  * Convert a date index (0 = today, -1 = yesterday, 1 = tomorrow) to a date
  */
@@ -83,12 +86,13 @@ export function getWeekMajorityMonth(date: Date): { month: number; year: number 
 export function getTileData(
   index: number,
   isActive: boolean,
-  prevTileData: TileData | null
+  _prevTileData: TileData | null
 ): TileData {
   const date = indexToDate(index);
   const dateKey = dateToKey(date);
   const dayOfMonth = date.getDate();
   const dayOfWeek = getDayOfWeek(date);
+  const dayName = DAY_NAMES[dayOfWeek];
   const isToday = isSameDay(date, TODAY);
   const weekNumber = getISOWeek(date);
   const weekYear = getISOWeekYear(date);
@@ -97,29 +101,29 @@ export function getTileData(
   // Determine week label (show on Monday)
   const weekLabel = isWeekStart ? `W${String(weekNumber).padStart(2, '0')}` : null;
 
-  // Determine month label (show when week's majority month changes)
+  // Determine month label (show ONLY on week start when majority month changes)
   let monthLabel: string | null = null;
   const currentMajority = getWeekMajorityMonth(date);
 
-  if (prevTileData) {
-    const prevDate = keyToDate(prevTileData.dateKey);
-    const prevMajority = getWeekMajorityMonth(prevDate);
+  // Only show month label on Mondays (week start)
+  if (isWeekStart) {
+    // Get the previous week's majority month
+    const prevWeekDate = addDays(date, -7);
+    const prevWeekMajority = getWeekMajorityMonth(prevWeekDate);
 
     if (
-      currentMajority.month !== prevMajority.month ||
-      currentMajority.year !== prevMajority.year
+      currentMajority.month !== prevWeekMajority.month ||
+      currentMajority.year !== prevWeekMajority.year
     ) {
       monthLabel = format(new Date(currentMajority.year, currentMajority.month, 1), 'MMMM yyyy');
     }
-  } else {
-    // First tile, always show month label
-    monthLabel = format(new Date(currentMajority.year, currentMajority.month, 1), 'MMMM yyyy');
   }
 
   return {
     dateKey,
     dayOfMonth,
     dayOfWeek,
+    dayName,
     isToday,
     isActive,
     weekNumber,

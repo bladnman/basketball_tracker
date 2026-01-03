@@ -6,7 +6,6 @@ import {
   THROW_START_HEIGHT,
   EJECT_DURATION,
   BALL_REST_Y,
-  SETTLE_DURATION,
 } from '../constants';
 
 /**
@@ -77,34 +76,71 @@ export class BallTrajectory {
   }
 
   /**
-   * Create settle animation: small bounce when ball lands
+   * Create settle animation: multiple bounces when ball lands
    */
   private static createSettleAnimation(
     ball: THREE.Object3D,
     restPosition: THREE.Vector3,
     onComplete?: () => void
   ): TWEEN.Tween<{ y: number }> | null {
-    const bounceHeight = 0.15;
     const progress = { y: restPosition.y };
 
-    return new TWEEN.Tween(progress)
-      .to({ y: restPosition.y + bounceHeight }, SETTLE_DURATION / 2)
+    // First bounce - highest (0.35 units up)
+    const bounce1Up = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y + 0.35 }, 120)
       .easing(TWEEN.Easing.Quadratic.Out)
       .onUpdate(() => {
         ball.position.y = progress.y;
+      });
+
+    const bounce1Down = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y }, 120)
+      .easing(TWEEN.Easing.Quadratic.In)
+      .onUpdate(() => {
+        ball.position.y = progress.y;
+      });
+
+    // Second bounce - medium (0.18 units up)
+    const bounce2Up = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y + 0.18 }, 90)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        ball.position.y = progress.y;
+      });
+
+    const bounce2Down = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y }, 90)
+      .easing(TWEEN.Easing.Quadratic.In)
+      .onUpdate(() => {
+        ball.position.y = progress.y;
+      });
+
+    // Third bounce - small (0.08 units up)
+    const bounce3Up = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y + 0.08 }, 60)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => {
+        ball.position.y = progress.y;
+      });
+
+    const bounce3Down = new TWEEN.Tween(progress)
+      .to({ y: restPosition.y }, 60)
+      .easing(TWEEN.Easing.Quadratic.In)
+      .onUpdate(() => {
+        ball.position.y = progress.y;
       })
-      .chain(
-        new TWEEN.Tween(progress)
-          .to({ y: restPosition.y }, SETTLE_DURATION / 2)
-          .easing(TWEEN.Easing.Bounce.Out)
-          .onUpdate(() => {
-            ball.position.y = progress.y;
-          })
-          .onComplete(() => {
-            onComplete?.();
-          })
-      )
-      .start();
+      .onComplete(() => {
+        onComplete?.();
+      });
+
+    // Chain all bounces together
+    bounce1Up.chain(bounce1Down);
+    bounce1Down.chain(bounce2Up);
+    bounce2Up.chain(bounce2Down);
+    bounce2Down.chain(bounce3Up);
+    bounce3Up.chain(bounce3Down);
+
+    return bounce1Up.start();
   }
 
   /**

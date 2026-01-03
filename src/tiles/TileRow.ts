@@ -58,6 +58,14 @@ export class TileRow extends THREE.Group {
       this.visibleRange = { start: newStart, end: newEnd };
       this.updateVisibleTiles();
     }
+
+    // Update light positions for active tiles (lights are in world space)
+    for (const [dateKey, tile] of this.pool.getActiveTiles()) {
+      if (this.habitStore.isActive(dateKey)) {
+        tile.updateWorldMatrix(true, false);
+        this.lightingSystem.updateLightPosition(dateKey, tile.getWorldCenter());
+      }
+    }
   }
 
   /**
@@ -161,6 +169,8 @@ export class TileRow extends THREE.Group {
     if (newState) {
       // Toggle ON - throw ball animation
       const ball = tile.getBall();
+      // Ensure world matrix is up to date before getting world position
+      tile.updateWorldMatrix(true, false);
       const worldCenter = tile.getWorldCenter();
 
       BallTrajectory.createThrowAnimation(ball, worldCenter, () => {

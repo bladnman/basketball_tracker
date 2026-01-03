@@ -31,7 +31,7 @@ export class DayTile extends THREE.Group {
     this.ball.visible = false;
     this.ball.position.y = BALL_REST_Y;
 
-    this.dayLabel = TileLabel.createDayLabel(1, false);
+    this.dayLabel = TileLabel.createDayLabel(1, 'MON', false);
 
     this.add(this.crate);
     this.add(this.ball);
@@ -54,7 +54,7 @@ export class DayTile extends THREE.Group {
     this.isActive = data.isActive;
 
     // Update day label
-    TileLabel.updateDayLabel(this.dayLabel, data.dayOfMonth, data.isToday);
+    TileLabel.updateDayLabel(this.dayLabel, data.dayOfMonth, data.dayName, data.isToday);
 
     // Show/hide ball based on active state (no animation during configure)
     this.ball.visible = data.isActive;

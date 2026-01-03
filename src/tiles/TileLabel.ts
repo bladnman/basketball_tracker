@@ -8,16 +8,23 @@ import {
 
 export class TileLabel {
   /**
-   * Create a day number label
+   * Create a day label (e.g., "MON 7") positioned on the table surface
    */
-  public static createDayLabel(dayNumber: number, isToday: boolean): Text {
+  public static createDayLabel(
+    dayNumber: number,
+    dayName: string,
+    isToday: boolean
+  ): Text {
     const text = new Text();
-    text.text = String(dayNumber);
-    text.fontSize = 0.35;
+    text.text = `${dayName} ${dayNumber}`;
+    text.fontSize = 0.3;
     text.color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
     text.anchorX = 'center';
     text.anchorY = 'middle';
-    text.position.set(0, -0.1, 0.9);
+    // Position on the floor, in front of the crate
+    text.position.set(0, 0.02, 1.4);
+    // Rotate to lay flat on the floor, facing up toward camera
+    text.rotation.set(-Math.PI / 2, 0, 0);
     text.sync();
     return text;
   }
@@ -55,8 +62,13 @@ export class TileLabel {
   /**
    * Update day label appearance
    */
-  public static updateDayLabel(label: Text, dayNumber: number, isToday: boolean): void {
-    label.text = String(dayNumber);
+  public static updateDayLabel(
+    label: Text,
+    dayNumber: number,
+    dayName: string,
+    isToday: boolean
+  ): void {
+    label.text = `${dayName} ${dayNumber}`;
     label.color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
     label.sync();
   }

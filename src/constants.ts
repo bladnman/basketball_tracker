@@ -1,12 +1,12 @@
 // Tile layout
 export const TILE_SPACING = 3.0;
-export const WEEK_GAP = 0.5;
+export const WEEK_GAP = 1.5;
 
 // Asset dimensions (normalized)
 export const CRATE_WIDTH = 2.0;
 export const CRATE_HEIGHT = 1.5;
 export const CRATE_DEPTH = 1.5;
-export const BALL_DIAMETER = 0.6;
+export const BALL_DIAMETER = 1.0;
 export const BALL_REST_Y = 0.4;
 
 // Animation timing
@@ -18,8 +18,8 @@ export const SETTLE_DURATION = 200;
 
 // Scroll behavior
 export const SCROLL_FRICTION = 0.92;
-export const SCROLL_SENSITIVITY = 0.01;
-export const DRAG_SENSITIVITY = 0.1;
+export const SCROLL_SENSITIVITY = 0.003;
+export const DRAG_SENSITIVITY = 0.03;
 
 // Tile pooling
 export const VISIBLE_TILE_BUFFER = 2;

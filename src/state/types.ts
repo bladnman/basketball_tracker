@@ -2,6 +2,7 @@ export interface TileData {
   dateKey: string; // "YYYY-MM-DD"
   dayOfMonth: number; // 1-31
   dayOfWeek: number; // 0-6 (Mon=0)
+  dayName: string; // "MON", "TUE", etc.
   isToday: boolean;
   isActive: boolean;
   weekNumber: number; // ISO week 1-53
