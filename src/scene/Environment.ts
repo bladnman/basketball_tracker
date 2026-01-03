@@ -47,7 +47,7 @@ export class Environment {
     scene.add(this.hemisphereLight);
 
     // Fog for depth
-    this.fog = new THREE.Fog(0x1a1a2e, 10, 40);
+    this.fog = new THREE.Fog(0x1a1a1a, 10, 40);
     scene.fog = this.fog;
   }
 

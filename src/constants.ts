@@ -31,7 +31,7 @@ export const CAMERA_LOOK_AT: [number, number, number] = [0, 1, 0];
 export const FRUSTUM_SIZE = 20;
 
 // Colors
-export const BACKGROUND_COLOR = 0x1a1a2e;
+export const BACKGROUND_COLOR = 0x1a1a1a;
 export const AMBIENT_LIGHT_COLOR = 0x404050;
 export const AMBIENT_LIGHT_INTENSITY = 0.6;
 export const DIRECTIONAL_LIGHT_COLOR = 0xffffff;
