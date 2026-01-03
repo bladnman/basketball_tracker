@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { Text } from 'troika-three-text';
 import {
   DAY_LABEL_COLOR,
@@ -6,27 +7,53 @@ import {
   TODAY_HIGHLIGHT_COLOR,
 } from '../constants';
 
+export interface DayLabelGroup extends THREE.Group {
+  dayNameText: Text;
+  dayNumberText: Text;
+}
+
 export class TileLabel {
   /**
-   * Create a day label (e.g., "MON 7") positioned on the table surface
+   * Create a stacked day label with day name on top, large day number below
    */
   public static createDayLabel(
     dayNumber: number,
     dayName: string,
     isToday: boolean
-  ): Text {
-    const text = new Text();
-    text.text = `${dayName} ${dayNumber}`;
-    text.fontSize = 0.5;
-    text.color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
-    text.anchorX = 'center';
-    text.anchorY = 'middle';
-    // Position on the floor, in front of the crate
-    text.position.set(0, 0.02, 1.4);
-    // Rotate to lay flat on the floor, facing up toward camera
-    text.rotation.set(-Math.PI / 2, 0, 0);
-    text.sync();
-    return text;
+  ): DayLabelGroup {
+    const group = new THREE.Group() as DayLabelGroup;
+    const color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
+
+    // Day name (top, smaller)
+    const dayNameText = new Text();
+    dayNameText.text = dayName;
+    dayNameText.fontSize = 0.4;
+    dayNameText.color = color;
+    dayNameText.anchorX = 'center';
+    dayNameText.anchorY = 'bottom';
+    // Position above the number
+    dayNameText.position.set(0, 0.02, 1.1);
+    dayNameText.rotation.set(-Math.PI / 2, 0, 0);
+    dayNameText.sync();
+
+    // Day number (bottom, larger)
+    const dayNumberText = new Text();
+    dayNumberText.text = String(dayNumber);
+    dayNumberText.fontSize = 0.9;
+    dayNumberText.color = color;
+    dayNumberText.anchorX = 'center';
+    dayNumberText.anchorY = 'top';
+    // Position below, slightly closer to camera (larger Z)
+    dayNumberText.position.set(0, 0.02, 1.25);
+    dayNumberText.rotation.set(-Math.PI / 2, 0, 0);
+    dayNumberText.sync();
+
+    group.add(dayNameText);
+    group.add(dayNumberText);
+    group.dayNameText = dayNameText;
+    group.dayNumberText = dayNumberText;
+
+    return group;
   }
 
   /**
@@ -63,13 +90,27 @@ export class TileLabel {
    * Update day label appearance
    */
   public static updateDayLabel(
-    label: Text,
+    labelGroup: DayLabelGroup,
     dayNumber: number,
     dayName: string,
     isToday: boolean
   ): void {
-    label.text = `${dayName} ${dayNumber}`;
-    label.color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
-    label.sync();
+    const color = isToday ? TODAY_HIGHLIGHT_COLOR : DAY_LABEL_COLOR;
+
+    labelGroup.dayNameText.text = dayName;
+    labelGroup.dayNameText.color = color;
+    labelGroup.dayNameText.sync();
+
+    labelGroup.dayNumberText.text = String(dayNumber);
+    labelGroup.dayNumberText.color = color;
+    labelGroup.dayNumberText.sync();
+  }
+
+  /**
+   * Dispose day label group
+   */
+  public static disposeDayLabel(labelGroup: DayLabelGroup): void {
+    labelGroup.dayNameText.dispose();
+    labelGroup.dayNumberText.dispose();
   }
 }

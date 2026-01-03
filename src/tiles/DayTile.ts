@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Text } from 'troika-three-text';
-import { TileLabel } from './TileLabel';
+import { TileLabel, DayLabelGroup } from './TileLabel';
 import { TileData } from '../state/types';
 import { BALL_REST_Y } from '../constants';
 
@@ -10,7 +10,7 @@ export class DayTile extends THREE.Group {
 
   private crate: THREE.Group;
   private ball: THREE.Group;
-  private dayLabel: Text;
+  private dayLabel: DayLabelGroup;
   private weekLabel: Text | null = null;
   private monthLabel: Text | null = null;
 
@@ -147,7 +147,7 @@ export class DayTile extends THREE.Group {
   }
 
   public dispose(): void {
-    this.dayLabel.dispose();
+    TileLabel.disposeDayLabel(this.dayLabel);
     this.weekLabel?.dispose();
     this.monthLabel?.dispose();
   }

@@ -1,11 +1,11 @@
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three';
-import { BALL_DIAMETER, CRATE_WIDTH, CRATE_DEPTH, BALL_REST_Y } from '../constants';
+import { BALL_DIAMETER, CRATE_WIDTH, CRATE_DEPTH, CRATE_HEIGHT, BALL_REST_Y } from '../constants';
 
 // Physics constants
 const GRAVITY = -15; // Slightly stronger than real gravity for snappier feel
 const BALL_MASS = 0.6;
-const BALL_RESTITUTION = 0.7; // Bounciness
+const BALL_RESTITUTION = 0.4; // Reduced bounciness for better containment
 const BALL_FRICTION = 0.3;
 const FIXED_TIME_STEP = 1 / 60;
 const MAX_SUB_STEPS = 3;
@@ -17,10 +17,17 @@ export interface PhysicsBall {
   isActive: boolean;
 }
 
+export interface CrateCollider {
+  bodies: CANNON.Body[]; // Floor + 4 walls
+  tileId: string;
+}
+
 export class PhysicsWorld {
   private world: CANNON.World;
   private balls: Map<string, PhysicsBall> = new Map();
+  private crateColliders: Map<string, CrateCollider> = new Map();
   private groundBody: CANNON.Body;
+  private lastScrollOffset: number = 0;
 
   constructor() {
     // Create physics world
@@ -220,30 +227,140 @@ export class PhysicsWorld {
   }
 
   /**
-   * Create a static box collider for a crate
+   * Create static colliders for a crate (floor + 4 walls)
    */
-  public createCrateCollider(worldPosition: THREE.Vector3): CANNON.Body {
-    // Create a box shape for the crate interior
-    const halfExtents = new CANNON.Vec3(
-      CRATE_WIDTH / 2 - BALL_DIAMETER / 2, // Slightly smaller to keep ball inside
-      0.05, // Thin floor
-      CRATE_DEPTH / 2 - BALL_DIAMETER / 2
-    );
+  public createCrateCollider(tileId: string, worldPosition: THREE.Vector3): CrateCollider {
+    // Remove existing collider if any
+    if (this.crateColliders.has(tileId)) {
+      this.removeCrateCollider(tileId);
+    }
 
-    const shape = new CANNON.Box(halfExtents);
-    const body = new CANNON.Body({
-      mass: 0, // Static
-      shape,
-    });
+    const bodies: CANNON.Body[] = [];
+    const wallThickness = 0.1;
+    const floorY = BALL_REST_Y - BALL_DIAMETER / 2;
+    const wallHeight = CRATE_HEIGHT;
 
-    body.position.set(
+    // Floor
+    const floorShape = new CANNON.Box(new CANNON.Vec3(
+      CRATE_WIDTH / 2,
+      wallThickness / 2,
+      CRATE_DEPTH / 2
+    ));
+    const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
+    floorBody.position.set(worldPosition.x, floorY, worldPosition.z);
+    this.world.addBody(floorBody);
+    bodies.push(floorBody);
+
+    // Front wall (positive Z)
+    const frontBackShape = new CANNON.Box(new CANNON.Vec3(
+      CRATE_WIDTH / 2,
+      wallHeight / 2,
+      wallThickness / 2
+    ));
+    const frontBody = new CANNON.Body({ mass: 0, shape: frontBackShape });
+    frontBody.position.set(
       worldPosition.x,
-      BALL_REST_Y - BALL_DIAMETER / 2,
+      floorY + wallHeight / 2,
+      worldPosition.z + CRATE_DEPTH / 2
+    );
+    this.world.addBody(frontBody);
+    bodies.push(frontBody);
+
+    // Back wall (negative Z)
+    const backBody = new CANNON.Body({ mass: 0, shape: frontBackShape });
+    backBody.position.set(
+      worldPosition.x,
+      floorY + wallHeight / 2,
+      worldPosition.z - CRATE_DEPTH / 2
+    );
+    this.world.addBody(backBody);
+    bodies.push(backBody);
+
+    // Left wall (negative X)
+    const leftRightShape = new CANNON.Box(new CANNON.Vec3(
+      wallThickness / 2,
+      wallHeight / 2,
+      CRATE_DEPTH / 2
+    ));
+    const leftBody = new CANNON.Body({ mass: 0, shape: leftRightShape });
+    leftBody.position.set(
+      worldPosition.x - CRATE_WIDTH / 2,
+      floorY + wallHeight / 2,
       worldPosition.z
     );
+    this.world.addBody(leftBody);
+    bodies.push(leftBody);
 
-    this.world.addBody(body);
-    return body;
+    // Right wall (positive X)
+    const rightBody = new CANNON.Body({ mass: 0, shape: leftRightShape });
+    rightBody.position.set(
+      worldPosition.x + CRATE_WIDTH / 2,
+      floorY + wallHeight / 2,
+      worldPosition.z
+    );
+    this.world.addBody(rightBody);
+    bodies.push(rightBody);
+
+    const collider: CrateCollider = { bodies, tileId };
+    this.crateColliders.set(tileId, collider);
+    return collider;
+  }
+
+  /**
+   * Remove crate collider
+   */
+  public removeCrateCollider(tileId: string): void {
+    const collider = this.crateColliders.get(tileId);
+    if (!collider) return;
+
+    for (const body of collider.bodies) {
+      this.world.removeBody(body);
+    }
+    this.crateColliders.delete(tileId);
+  }
+
+  /**
+   * Update crate collider position (for scroll sync)
+   */
+  public updateCrateColliderPosition(tileId: string, worldPosition: THREE.Vector3): void {
+    const collider = this.crateColliders.get(tileId);
+    if (!collider) return;
+
+    const floorY = BALL_REST_Y - BALL_DIAMETER / 2;
+    const wallHeight = CRATE_HEIGHT;
+
+    // Update floor
+    collider.bodies[0].position.set(worldPosition.x, floorY, worldPosition.z);
+    // Update front wall
+    collider.bodies[1].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z + CRATE_DEPTH / 2);
+    // Update back wall
+    collider.bodies[2].position.set(worldPosition.x, floorY + wallHeight / 2, worldPosition.z - CRATE_DEPTH / 2);
+    // Update left wall
+    collider.bodies[3].position.set(worldPosition.x - CRATE_WIDTH / 2, floorY + wallHeight / 2, worldPosition.z);
+    // Update right wall
+    collider.bodies[4].position.set(worldPosition.x + CRATE_WIDTH / 2, floorY + wallHeight / 2, worldPosition.z);
+  }
+
+  /**
+   * Update scroll offset and shift all physics bodies accordingly
+   */
+  public updateScrollOffset(newScrollOffset: number): void {
+    const deltaX = this.lastScrollOffset - newScrollOffset;
+    if (Math.abs(deltaX) < 0.0001) return;
+
+    // Update all ball positions
+    for (const ball of this.balls.values()) {
+      ball.body.position.x += deltaX;
+    }
+
+    // Update all crate collider positions
+    for (const collider of this.crateColliders.values()) {
+      for (const body of collider.bodies) {
+        body.position.x += deltaX;
+      }
+    }
+
+    this.lastScrollOffset = newScrollOffset;
   }
 
   public dispose(): void {
@@ -251,6 +368,14 @@ export class PhysicsWorld {
       this.world.removeBody(ball.body);
     }
     this.balls.clear();
+
+    for (const collider of this.crateColliders.values()) {
+      for (const body of collider.bodies) {
+        this.world.removeBody(body);
+      }
+    }
+    this.crateColliders.clear();
+
     this.world.removeBody(this.groundBody);
   }
 }

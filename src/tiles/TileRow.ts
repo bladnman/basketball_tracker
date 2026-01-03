@@ -45,6 +45,9 @@ export class TileRow extends THREE.Group {
    * Update based on scroll offset
    */
   public updateScroll(scrollOffset: number, viewportWidth: number): void {
+    // Sync physics bodies with scroll
+    this.physicsWorld.updateScrollOffset(scrollOffset);
+
     // Move the container (camera stays fixed)
     this.position.x = -scrollOffset;
 
@@ -130,6 +133,10 @@ export class TileRow extends THREE.Group {
       this.lightingSystem.addActiveLight(dateKey, tile.getWorldCenter());
     }
 
+    // Create crate collider for physics
+    tile.updateWorldMatrix(true, false);
+    this.physicsWorld.createCrateCollider(dateKey, tile.getWorldCenter());
+
     return tileData;
   }
 
@@ -141,6 +148,7 @@ export class TileRow extends THREE.Group {
     if (tile) {
       this.remove(tile);
       this.lightingSystem.removeActiveLight(dateKey);
+      this.physicsWorld.removeCrateCollider(dateKey);
       this.pool.release(dateKey);
       this.tileDataCache.delete(index);
     }
